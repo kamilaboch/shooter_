@@ -1,0 +1,30 @@
+# Build
+build/
+out/
+cmake-build-*/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.VC.db
+*.VC.VC.opendb
+
+# Binaries
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.obj
+*.lib
+*.exp
+
+# macOS/Linux
+.DS_Store
+*.o
+*.a
+*.so
+
+# Runtime data
+profile.dat
+settings.cfg

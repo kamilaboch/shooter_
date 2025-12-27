@@ -1,0 +1,106 @@
+# Flanki Shooter – Student vs Puszki  
+**C++ / raylib / CMake**
+
+Projekt zaliczeniowy z przedmiotu **Podstawy informatyki**.
+
+Gra typu **2D shooter**, w której gracz steruje **studentem** poruszającym się
+w poziomie na dole ekranu. Celem gry jest strzelanie do **spadających puszek piwa**,
+zdobywanie punktów oraz unikanie stanu **upicia** i utraty **HP**.
+
+Power-up **kawa** pomaga studentowi przetrwać – leczy, zmniejsza upicie
+oraz chwilowo zwiększa szybkostrzelność.
+
+---
+
+## Cel projektu
+Celem projektu było:
+- stworzenie działającej gry 2D w języku **C++**,
+- wykorzystanie biblioteki **raylib**,
+- spełnienie wymagań projektowych z zakresu podstaw programowania,
+- praca zespołowa z wykorzystaniem systemu kontroli wersji **Git**.
+
+Projekt rozwijany był **krok po kroku**, a każda funkcjonalność została dodana
+w osobnym commicie.
+
+---
+
+## Wymagania projektowe (zaliczenie)
+
+W projekcie zostały wykorzystane:
+
+- **funkcje**
+- **pętle** (`for`, `while`)
+- **instrukcje warunkowe** (`if`)
+- **tablice** (m.in. `std::array`, tablice obiektów gry)
+- **operacje na plikach** (zapis i odczyt profilu gracza do `profile.dat`)
+- **szyfrowanie danych** (prosty XOR)
+- **elementy programowania strukturalnego / OOP** (struktury obiektów gry)
+- **interfejs użytkownika**:
+  - menu główne
+  - logowanie nickiem
+  - wyświetlanie statystyk profilu
+- **dodatkowe mechaniki rozgrywki**:
+  - punkty życia (HP)
+  - poziom upicia
+  - power-up (kawa)
+  - rosnący poziom trudności
+
+---
+
+## Technologie
+- **Język:** C++ (C++17)
+- **Biblioteka graficzna:** raylib
+- **System budowania:** CMake
+- **System kontroli wersji:** Git / GitHub
+
+---
+
+## Sterowanie
+- **A / D** lub **← / →** – ruch studenta
+- **Spacja** lub **LPM** – strzał
+- **ESC** – powrót do menu / wyjście
+
+---
+
+## Plik profilu
+Po zakończeniu gry zapisywany jest profil gracza:
+
+- plik: `profile.dat`
+- zapisywane dane:
+  - nick gracza
+  - najlepszy wynik
+  - liczba trafień
+  - liczba rozegranych gier
+- dane są zabezpieczone prostym szyfrowaniem **XOR**
+
+---
+
+## Uruchomienie – Visual Studio Code (Windows)
+
+1. Otwórz **Visual Studio Code**
+2. Wybierz **Plik → Otwórz folder**
+3. Otwórz folder projektu (z plikiem `CMakeLists.txt`)
+4. Otwórz paletę poleceń (**Ctrl + Shift + P**)
+5. Wykonaj kolejno:
+   - `CMake: Usuń pamięć podręczną i skonfiguruj ponownie`
+   - `CMake: Konfiguruj`
+   - `CMake: Kompiluj`
+   - `CMake: Uruchom`
+
+Po poprawnym uruchomieniu pojawi się okno gry.
+
+---
+
+## Uruchomienie – Visual Studio 2022 (Windows)
+
+1. **File → Open → Folder…**
+2. Wybierz folder z `CMakeLists.txt`
+3. **Build → Build All**
+4. **Debug → Start Without Debugging** (`Ctrl + F5`)
+
+> Przy pierwszym uruchomieniu Visual Studio pobierze bibliotekę raylib
+> (wymagane połączenie z internetem).
+
+---
+
+## Struktura projektu
