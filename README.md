@@ -82,9 +82,6 @@ Przy pierwszym uruchomieniu Visual Studio pobierze bibliotekę raylib
 
 
 
-Jasne, oto czysta, profesjonalna wersja pliku README.md bez żadnych emotek, oparta wyłącznie na punktorach i tekście.
-
-Skopiuj poniższą treść i wklej do pliku README.md na GitHubie.
 
 Flanki Simulator: Student Edition
 Symulator przetrwania sesji, gdzie twoim wrogiem nie są egzaminy, ale procenty.
@@ -138,26 +135,12 @@ Wypadają losowo z pokonanych puszek. Symbolizują je znaki tekstowe:
 
 [ R ] Rapid Fire: Strzelasz znacznie szybciej.
 
-Instalacja i Uruchomienie
-Pobierz kod lub sklonuj repozytorium.
 
-Upewnij się, że w folderze z plikiem wykonywalnym (.exe) znajduje się folder "assets" zawierający pliki graficzne:
 
-gracz.png
 
-kebab.png
 
-mandat.png
-
-Grafiki piw (kuflowe.png, perla.png, itd.)
-
-Uruchom plik wykonywalny.
-
-Technologie
-Język: C++
-
-Silnik: Raylib
 
 Grafika: Pixel Perfect (skalowanie punktowe)
+
 
 
