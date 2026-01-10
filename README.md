@@ -62,10 +62,7 @@ Po zakończeniu gry zapisywany jest profil gracza:
 - plik: `profile.dat`
 - zapisywane dane:
   - nick gracza
-  - najlepszy wynik
-  - liczba trafień
-  - liczba rozegranych gier
-- dane są zabezpieczone prostym szyfrowaniem (XOR)
+- dane są zabezpieczone prostym szyfrowaniem
 
 
 ## Uruchomienie – Visual Studio 2022 (Windows)
@@ -77,4 +74,5 @@ Po zakończeniu gry zapisywany jest profil gracza:
 
 Przy pierwszym uruchomieniu Visual Studio pobierze bibliotekę raylib
 (wymagane połączenie z internetem).
+
 
