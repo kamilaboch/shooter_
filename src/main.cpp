@@ -158,6 +158,7 @@ public:
 int main() {
     const int W = 1280, H = 720;
     InitWindow(W, H, "Flanki Shooter: Prepare to Battle");
+    ToggleFullscreen();
     SetTargetFPS(60);
 
     GameState state = MENU;
@@ -229,29 +230,42 @@ int main() {
             }
 
             //  RYSOWANIE MENU
+            //  RYSOWANIE MENU
             BeginDrawing();
             ClearBackground(BLACK);
 
             DrawText("FLANKI SHOOTER", W / 2 - 220, 120, 50, RAYWHITE);
-            DrawText("Profile:", W / 2 - 200, 200, 30, GRAY);
+            DrawText("Profile:", W / 2 - 200, 200, 20, GRAY);
 
+            // lista profili
             for (int i = 0; i < pm.profiles.size(); i++) {
                 Color c = (i == pm.selected) ? YELLOW : GRAY;
                 DrawText(
-                    TextFormat("%s  |  Best: %d", pm.profiles[i].nick.c_str(), pm.profiles[i].bestScore), W / 2 - 200, 240 + i * 30, 22, c
+                    TextFormat("%s  |  Best: %d",
+                        pm.profiles[i].nick.c_str(),
+                        pm.profiles[i].bestScore),
+                    W / 2 - 200, 240 + i * 30, 22, c
                 );
             }
 
-            DrawText("ENTER - wybierz", W / 2 - 200, H - 180, 20, DARKGRAY);
-            DrawText("N - nowy profil", W / 2 - 200, H - 150, 20, DARKGRAY);
-            DrawText("ESC - wyjscie", W / 2 - 200, H - 20, 20, DARKGRAY);
+            // ===== BLOK MENU (jedna baza Y) =====
+            int menuY = 240 + pm.profiles.size() * 30 + 30;
+
+            DrawText("ENTER - wybierz", W / 2 - 200, menuY, 20, DARKGRAY);
+            DrawText("N - nowy profil", W / 2 - 200, menuY + 30, 20, DARKGRAY);
+
+            // POLE NOWEGO NICKU POD "N - nowy profil"
             if (newProfileMode) {
-                DrawText("Nowy nick:", W / 2 - 150, 470, 25, GRAY);
-                DrawRectangle(W / 2 - 150, 500, 300, 40, DARKGRAY);
-                DrawText(newNick.c_str(), W / 2 - 140, 510, 25, RAYWHITE);
+                DrawText("Nowy nick:", W / 2 - 200, menuY + 70, 22, GRAY);
+                DrawRectangle(W / 2 - 200, menuY + 100, 300, 40, DARKGRAY);
+                DrawText(newNick.c_str(), W / 2 - 190, menuY + 110, 22, RAYWHITE);
             }
 
+            // ESC na samym dole
+            DrawText("ESC - wyjscie", W / 2 - 200, menuY + 160, 20, DARKGRAY);
+
             EndDrawing();
+
             continue;
         }
 
