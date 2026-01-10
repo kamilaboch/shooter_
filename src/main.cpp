@@ -114,6 +114,27 @@ void SpawnLevel(vector<Enemy>& enemies, int level, int formationType) {
     break;
     }
 }
+// Szyfrowanie cezara
+string caesarEncrypt(const string& text, int shift) {
+    string result = text;
+    for (char& c : result) {
+        if (c >= 32 && c <= 126) { // znaki drukowalne ASCII
+            c = (char)(32 + (c - 32 + shift) % 95);
+        }
+    }
+    return result;
+}
+
+string caesarDecrypt(const string& text, int shift) {
+    string result = text;
+    for (char& c : result) {
+        if (c >= 32 && c <= 126) {
+            c = (char)(32 + (c - 32 - shift + 95) % 95);
+        }
+    }
+    return result;
+}
+
 
 // --- KOD OSOBY 3 (NIENARUSZONY) ---
 
@@ -132,17 +153,27 @@ public:
     void load() {
         ifstream in("profiles.dat");
         profiles.clear();
-        Profile p;
-        while (in >> p.nick >> p.bestScore) {
-            profiles.push_back(p);
+
+        string nick;
+        int score;
+        const int SHIFT = 3;
+
+        while (in >> nick >> score) {
+            nick = caesarDecrypt(nick, SHIFT);
+            profiles.push_back({ nick, score });
         }
     }
 
+
     void save() {
         ofstream out("profiles.dat");
-        for (auto& p : profiles)
-            out << p.nick << p.bestScore << "\n";
+        const int SHIFT = 3;
+
+        for (auto& p : profiles) {
+            out << caesarEncrypt(p.nick, SHIFT) << " " << p.bestScore << "\n";
+        }
     }
+
 
     void addProfile(const string& nick) {
         profiles.push_back({ nick, 0 });
