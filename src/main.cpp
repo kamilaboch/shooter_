@@ -120,6 +120,7 @@ void SpawnLevel(vector<Enemy>& enemies, int level, int formationType) {
 // PROFIL
 struct Profile {
     string nick;
+    int bestScore = 0;
 };
 
 // ZARZĄDZANIE PROFILAMI 
@@ -132,18 +133,19 @@ public:
         ifstream in("profiles.dat");
         profiles.clear();
         Profile p;
-        while (in >> p.nick)
+        while (in >> p.nick >> p.bestScore) {
             profiles.push_back(p);
+        }
     }
 
     void save() {
         ofstream out("profiles.dat");
         for (auto& p : profiles)
-            out << p.nick << "\n";
+            out << p.nick << p.bestScore << "\n";
     }
 
     void addProfile(const string& nick) {
-        profiles.push_back({ nick });
+        profiles.push_back({ nick, 0 });
         selected = (int)profiles.size() - 1;
         save();
     }
@@ -235,8 +237,9 @@ int main() {
 
             for (int i = 0; i < pm.profiles.size(); i++) {
                 Color c = (i == pm.selected) ? YELLOW : GRAY;
-                DrawText(pm.profiles[i].nick.c_str(),
-                    W / 2 - 200, 240 + i * 30, 22, c);
+                DrawText(
+                    TextFormat("%s  |  Best: %d", pm.profiles[i].nick.c_str(), pm.profiles[i].bestScore), W / 2 - 200, 240 + i * 30, 22, c
+                );
             }
 
             DrawText("ENTER - wybierz", W / 2 - 200, H - 180, 20, DARKGRAY);
@@ -255,7 +258,12 @@ int main() {
         // --- WIN SCREEN ---
         if (state == WIN_SCREEN) {
             if (IsKeyPressed(KEY_ENTER)) state = MENU;
-            BeginDrawing(); ClearBackground(RAYWHITE); DrawText("GRATULACJE!", W / 2 - 200, H / 2 - 50, 60, GOLD); DrawText("Pokonales Bossa!", W / 2 - 250, H / 2 + 20, 30, DARKGRAY); DrawText(TextFormat("Wynik: %d", score), W / 2 - 150, H / 2 + 60, 30, BLACK); EndDrawing(); continue;
+            BeginDrawing(); ClearBackground(RAYWHITE);
+            DrawText("GRATULACJE!", W / 2 - 200, H / 2 - 50, 60, GOLD);
+            DrawText("Pokonales Bossa!", W / 2 - 250, H / 2 + 20, 30, DARKGRAY);
+            DrawText(TextFormat("Wynik: %d", score), W / 2 - 150, H / 2 + 60, 30, BLACK);
+            EndDrawing();
+            continue;
         }
 
         // --- LEVEL TRANSITION (Ekrany przejścia / Startu) ---
@@ -324,7 +332,8 @@ int main() {
             if (!bossActive && !enemies.empty()) { formationOffset += formationDir * 150.0f * dt; if (formationOffset > 200) formationDir = -1.0f; if (formationOffset < -200) formationDir = 1.0f; }
             for (auto& e : enemies) {
                 if (e.isBoss) {
-                    if (e.y < 50) e.y += 100 * dt; else e.x += sin(GetTime()) * 300 * dt;
+                    if (e.y < 50) e.y += 100 * dt;
+                    else e.x += sin(GetTime()) * 300 * dt;
                     if (GetRandomValue(0, 100) < 8) { bullets.push_back({ e.x + e.width / 2, e.y + e.height, 400, 0, true, RED, 10 }); bullets.push_back({ e.x, e.y + e.height, 350, -200, true, RED, 10 }); bullets.push_back({ e.x + e.width, e.y + e.height, 350, 200, true, RED, 10 }); }
                 }
                 else {
@@ -337,8 +346,40 @@ int main() {
             // POCISKI, KOLIZJE
             for (int i = 0; i < bullets.size(); i++) { bullets[i].y += bullets[i].speedY * dt; bullets[i].x += bullets[i].speedX * dt; if (bullets[i].y < -50 || bullets[i].y > H + 50 || bullets[i].x < -50 || bullets[i].x > W + 50) { bullets.erase(bullets.begin() + i); i--; } }
             Rectangle playerRect = { playerX - 18, playerY - 18, 36, 36 };
-            for (int i = 0; i < bullets.size(); i++) { if (bullets[i].isEnemy) { if (CheckCollisionCircleRec({ bullets[i].x, bullets[i].y }, 5, playerRect)) { if (hasShield) { hasShield = false; bullets.erase(bullets.begin() + i); i--; } else { playerHP -= 10; bullets.erase(bullets.begin() + i); i--; if (playerHP <= 0) state = MENU; } } } }
-            for (int i = 0; i < bullets.size(); i++) { if (!bullets[i].isEnemy) { bool hit = false; for (int j = 0; j < enemies.size(); j++) { Rectangle enemyRect = { enemies[j].x, enemies[j].y, enemies[j].width, enemies[j].height }; if (CheckCollisionCircleRec({ bullets[i].x, bullets[i].y }, 3, enemyRect)) { enemies[j].hp -= bullets[i].damage; hit = true; if (enemies[j].hp <= 0) { score += (enemies[j].isBoss ? 5000 : 50); if (!enemies[j].isBoss && GetRandomValue(0, 100) < 20) { int pType = GetRandomValue(0, 4); powerups.push_back({ enemies[j].x, enemies[j].y, pType, true }); } if (enemies[j].isBoss) { enemies.erase(enemies.begin() + j); state = WIN_SCREEN; break; } enemies.erase(enemies.begin() + j); } break; } } if (hit) { bullets.erase(bullets.begin() + i); i--; } } }
+            for (int i = 0; i < bullets.size(); i++) {
+                if (bullets[i].isEnemy) {
+                    if (CheckCollisionCircleRec({ bullets[i].x, bullets[i].y }, 5, playerRect)) {
+                        if (hasShield) { hasShield = false; bullets.erase(bullets.begin() + i); i--; }
+
+                        else {
+                            playerHP -= 10; bullets.erase(bullets.begin() + i); i--;
+                            if (playerHP <= 0)
+                            {
+                                if (score > pm.current().bestScore) {
+                                    pm.current().bestScore = score;
+                                    pm.save();
+                                } state = MENU;
+                            }
+                        }
+                    }
+                }
+            }
+            for (int i = 0; i < bullets.size(); i++) {
+                if (!bullets[i].isEnemy) {
+                    bool hit = false; for (int j = 0; j < enemies.size(); j++) {
+                        Rectangle enemyRect = { enemies[j].x, enemies[j].y, enemies[j].width, enemies[j].height }; if (CheckCollisionCircleRec({ bullets[i].x, bullets[i].y }, 3, enemyRect)) {
+                            enemies[j].hp -= bullets[i].damage; hit = true; if (enemies[j].hp <= 0) {
+                                score += (enemies[j].isBoss ? 5000 : 50); if (!enemies[j].isBoss && GetRandomValue(0, 100) < 20) { int pType = GetRandomValue(0, 4); powerups.push_back({ enemies[j].x, enemies[j].y, pType, true }); } if (enemies[j].isBoss) {
+                                    enemies.erase(enemies.begin() + j); if (score > pm.current().bestScore) {
+                                        pm.current().bestScore = score;
+                                        pm.save();
+                                    } state = WIN_SCREEN; break;
+                                } enemies.erase(enemies.begin() + j);
+                            } break;
+                        }
+                    } if (hit) { bullets.erase(bullets.begin() + i); i--; }
+                }
+            }
             for (int i = 0; i < powerups.size(); i++) { powerups[i].y += 150 * dt; if (CheckCollisionRecs(playerRect, { powerups[i].x, powerups[i].y, 20, 20 })) { int t = powerups[i].type; if (t == 0) playerHP = (playerHP + 30 > 100) ? 100 : playerHP + 30; if (t == 1) { if (weaponLevel < 5) weaponLevel++; } if (t == 2) hasShield = true; if (t == 3) fireAmmo = true; if (t == 4) rapidFire = true; powerups.erase(powerups.begin() + i); i--; } else if (powerups[i].y > H) { powerups.erase(powerups.begin() + i); i--; } }
         }
 
@@ -351,6 +392,9 @@ int main() {
             for (auto& b : bullets) DrawCircle((int)b.x, (int)b.y, b.isEnemy ? 5 : (fireAmmo ? 5 : 3), b.color);
             for (auto& p : powerups) { Color pc = WHITE; const char* txt = "?"; if (p.type == 0) { pc = GREEN; txt = "+"; } if (p.type == 1) { pc = YELLOW; txt = "W"; } if (p.type == 2) { pc = BLUE; txt = "S"; } if (p.type == 3) { pc = ORANGE; txt = "F"; } if (p.type == 4) { pc = PURPLE; txt = "R"; } DrawRectangle((int)p.x, (int)p.y, 20, 20, pc); DrawText(txt, (int)p.x + 5, (int)p.y + 2, 10, BLACK); }
             DrawText(TextFormat("Gracz: %s", pm.current().nick.c_str()), 10, 10, 20, WHITE); DrawText(TextFormat("HP: %d", playerHP), 10, 40, 20, GREEN); DrawText(TextFormat("Score: %d", score), 10, 70, 20, YELLOW);
+            DrawText(
+                TextFormat("Best: %d", pm.current().bestScore),
+                10, 100, 20, GOLD);
             DrawText("Active bonuses:", 10, 110, 15, GRAY); if (fireAmmo) DrawText("FIRE AMMO", 10, 130, 15, ORANGE); if (rapidFire) DrawText("RAPID FIRE", 10, 150, 15, PURPLE); DrawText(TextFormat("Weapon Lvl: %d/5", weaponLevel), 10, 170, 15, YELLOW);
             if (bossActive) DrawText("FINAL BOSS!", W / 2 - 100, 50, 30, RED); else DrawText(TextFormat("LEVEL: %d", level), W - 150, 10, 20, BLUE);
         }
