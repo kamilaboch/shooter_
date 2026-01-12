@@ -6,7 +6,7 @@ Gra typu **2D shooter**, w której gracz steruje **studentem** poruszającym si�
 w poziomie na dole ekranu. Celem gry jest strzelanie do **spadających puszek piwa**,
 zdobywanie punktów oraz unikanie utraty **HP**.
 
-Power-up **kawa** pomaga studentowi przetrwać
+Power-upy pomagaja studentowi przetrwać
 oraz chwilowo zwiększa szybkostrzelność.
 
 
@@ -30,7 +30,7 @@ W projekcie zostały wykorzystane:
 - **instrukcje warunkowe** (`if`)
 - **tablice** (m.in. `array`, tablice obiektów gry)
 - **operacje na plikach** (zapis i odczyt profilu gracza do `profile.dat`)
-- **szyfrowanie danych** (prosty XOR)
+- **szyfrowanie danych**
 - **elementy programowania strukturalnego / OOP** (struktury obiektów gry)
 - **interfejs użytkownika**:
   - menu główne
@@ -38,8 +38,7 @@ W projekcie zostały wykorzystane:
   - wyświetlanie statystyk profilu
 - **dodatkowe mechaniki rozgrywki**:
   - punkty życia (HP)
-  - poziom upicia
-  - power-up (kawa)
+  - power-up
   - rosnący poziom trudności
 
 
@@ -74,5 +73,6 @@ Po zakończeniu gry zapisywany jest profil gracza:
 
 Przy pierwszym uruchomieniu Visual Studio pobierze bibliotekę raylib
 (wymagane połączenie z internetem).
+
 
 
