@@ -10,54 +10,90 @@
 
 using namespace std;
 
-// Stany aplikacji
-enum GameState { MENU, GAME, LEVEL_TRANSITION, WIN_SCREEN };
+// STANY APLIKACJI
+enum GameState {
+    MENU,              // menu główne + profile
+    GAME,              // aktywna rozgrywka
+    LEVEL_TRANSITION,  // ekran przejścia między poziomami
+    WIN_SCREEN         // ekran zwycięstwa (boss)
+};
+float Clamp(float value, float min, float max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+}
 
-// --- STRUKTURY OSOBY 1 (Gameplay) ---
+
+// STRUKTURY ROZGRYWKI
+
+// Pojedynczy pocisk (gracza lub wroga)
 struct Bullet {
     float x, y;
-    float speedY; float speedX;
+    float speedY;
+    float speedX;
     bool isEnemy;
     Color color;
     int damage;
 };
 
+// Przeciwnik (zwykły lub boss)
 struct Enemy {
     float x, y;
     float width, height;
-    int hp; int maxHp;
+    int hp, maxHp;
     bool isBoss;
+
+    // Pozycja w formacji
     float formationX, formationY;
     bool inPosition;
+
     Color baseColor;
     int textureIndex;
 };
 
+// Bonus wypadający z przeciwnika
 struct PowerUp {
-    float x, y; int type; bool active;
+    float x, y;
+    int type;
+    bool active;
 };
 
-// Funkcje pomocnicze Osoby 1
+// FUNKCJE POMOCNICZE
+// Losowy kolor przeciwnika
 Color GetRandomBottleColor() {
     int r = GetRandomValue(0, 3);
     switch (r) {
-    case 0: return GREEN; break;
-    case 1: return SKYBLUE; break;
-    case 2: return BEIGE; break;
-    case 3: return YELLOW; break;
+    case 0: return GREEN;
+    case 1: return SKYBLUE;
+    case 2: return BEIGE;
+    case 3: return YELLOW;
     default: return ORANGE;
     }
 }
 
-Enemy CreateBasicEnemy(float formX, float formY, int hpBonus, float startOffsetY, int textureIndex) {
+// Tworzy standardowego przeciwnika
+Enemy CreateBasicEnemy(
+    float formX,
+    float formY,
+    int hpBonus,
+    float startOffsetY,
+    int textureIndex
+) {
     Enemy e;
-    e.width = 56; e.height = 56;
-    e.hp = 20 + hpBonus; e.maxHp = e.hp;
+    e.width = 56;
+    e.height = 56;
+
+    e.hp = 20 + hpBonus;
+    e.maxHp = e.hp;
     e.isBoss = false;
+
     e.formationX = formX;
     e.formationY = formY;
+
+    // Startuje nad ekranem
     e.x = e.formationX;
     e.y = -100.0f - startOffsetY;
+
     e.inPosition = false;
     e.baseColor = GetRandomBottleColor();
     e.textureIndex = textureIndex;
@@ -66,79 +102,124 @@ Enemy CreateBasicEnemy(float formX, float formY, int hpBonus, float startOffsetY
 
 int gEnemyTextureCount = 0;
 
+// Losowy indeks tekstury przeciwnika
 int GetRandomEnemyTextureIndex() {
-    if (gEnemyTextureCount <= 0) {
-        return -1;
-    }
+    if (gEnemyTextureCount <= 0) return -1;
     return GetRandomValue(0, gEnemyTextureCount - 1);
 }
 
+// GENEROWANIE FALI PRZECIWNIKÓW
 void SpawnLevel(vector<Enemy>& enemies, int level, int formationType) {
     int hpBonus = level * 15;
+
     float spacingX = 60.0f;
     float spacingY = 60.0f;
     float centerX = 1280 / 2.0f;
     float startY = 100.0f;
 
     switch (formationType) {
-    case 0: // SIATKA
-    {
+
+        // --- SIATKA ---
+    case 0: {
         int rows = 3 + level / 2;
         int cols = 6 + (level % 3);
-        float startX = (1280 - (cols * spacingX)) / 2.0f + spacingX / 2.0f;
-        for (int row = 0; row < rows; ++row) {
-            for (int col = 0; col < cols; ++col) {
-                enemies.push_back(CreateBasicEnemy(startX + col * spacingX, startY + row * spacingY, hpBonus, row * 100.0f, GetRandomEnemyTextureIndex()));
+
+        float startX =
+            (1280 - (cols * spacingX)) / 2.0f + spacingX / 2.0f;
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                enemies.push_back(
+                    CreateBasicEnemy(
+                        startX + c * spacingX,
+                        startY + r * spacingY,
+                        hpBonus,
+                        r * 100.0f,
+                        GetRandomEnemyTextureIndex()
+                    )
+                );
             }
         }
-    }
-    break;
-    case 1: // V-KSZTAŁTNA
-    {
+    } break;
+
+          // --- FORMACJA V ---
+    case 1: {
         int count = 7 + level;
-        for (int i = 0; i < count; ++i) {
-            enemies.push_back(CreateBasicEnemy(centerX - (i * spacingX), startY + (i * spacingY), hpBonus, i * 80.0f, GetRandomEnemyTextureIndex()));
-            if (i > 0) enemies.push_back(CreateBasicEnemy(centerX + (i * spacingX), startY + (i * spacingY), hpBonus, i * 80.0f, GetRandomEnemyTextureIndex()));
+        for (int i = 0; i < count; i++) {
+            enemies.push_back(CreateBasicEnemy(
+                centerX - i * spacingX,
+                startY + i * spacingY,
+                hpBonus,
+                i * 80.0f,
+                GetRandomEnemyTextureIndex()
+            ));
+            if (i > 0) {
+                enemies.push_back(CreateBasicEnemy(
+                    centerX + i * spacingX,
+                    startY + i * spacingY,
+                    hpBonus,
+                    i * 80.0f,
+                    GetRandomEnemyTextureIndex()
+                ));
+            }
         }
-    }
-    break;
-    case 2: // OKRĄG
-    {
+    } break;
+
+          // --- OKRĄG ---
+    case 2: {
         int count = 12 + level * 2;
         float radius = 180.0f;
-        float circleCenterY = 250.0f;
-        for (int i = 0; i < count; ++i) {
+        float centerY = 250.0f;
+
+        for (int i = 0; i < count; i++) {
             float angle = (float)i / count * 2.0f * PI;
-            enemies.push_back(CreateBasicEnemy(centerX + cos(angle) * radius, circleCenterY + sin(angle) * radius, hpBonus, i * 50.0f, GetRandomEnemyTextureIndex()));
+            enemies.push_back(CreateBasicEnemy(
+                centerX + cos(angle) * radius,
+                centerY + sin(angle) * radius,
+                hpBonus,
+                i * 50.0f,
+                GetRandomEnemyTextureIndex()
+            ));
         }
-    }
-    break;
-    case 3: // BLOK
-    {
+    } break;
+
+          // --- BLOK ---
+    case 3: {
         int rows = 5 + level / 2;
         int cols = 10 + level / 2;
-        float tightSpacing = 56.0f;
-        float startX = (1280 - (cols * tightSpacing)) / 2.0f + tightSpacing / 2.0f;
-        for (int row = 0; row < rows; ++row) {
-            for (int col = 0; col < cols; ++col) {
-                enemies.push_back(CreateBasicEnemy(startX + col * tightSpacing, startY + row * tightSpacing, hpBonus, row * 80.0f, GetRandomEnemyTextureIndex()));
+        float spacing = 56.0f;
+
+        float startX =
+            (1280 - (cols * spacing)) / 2.0f + spacing / 2.0f;
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                enemies.push_back(CreateBasicEnemy(
+                    startX + c * spacing,
+                    startY + r * spacing,
+                    hpBonus,
+                    r * 80.0f,
+                    GetRandomEnemyTextureIndex()
+                ));
             }
         }
-    }
-    break;
+    } break;
     }
 }
-// Szyfrowanie cezara (legacy)
+
+// SZYFR 
+// Proste szyfrowanie tekstu (ASCII 32–126)
 string caesarEncrypt(const string& text, int shift) {
     string result = text;
     for (char& c : result) {
-        if (c >= 32 && c <= 126) { // znaki drukowalne ASCII
+        if (c >= 32 && c <= 126) {
             c = (char)(32 + (c - 32 + shift) % 95);
         }
     }
     return result;
 }
 
+// Odszyfrowywanie tekstu
 string caesarDecrypt(const string& text, int shift) {
     string result = text;
     for (char& c : result) {
@@ -148,15 +229,6 @@ string caesarDecrypt(const string& text, int shift) {
     }
     return result;
 }
-
-string xorTransform(const string& text, unsigned char key) {
-    string result = text;
-    for (char& c : result) {
-        c = (char)(c ^ key);
-    }
-    return result;
-}
-
 string ResolveAssetPath(const char* filename) {
     namespace fs = std::filesystem;
     const vector<fs::path> prefixes = {
@@ -198,104 +270,70 @@ void MakeNearWhiteTransparent(Image* img, unsigned char threshold) {
     }
 }
 
-// --- KOD OSOBY 3 (NIENARUSZONY) ---
 
-// PROFIL
+// PROFIL GRACZA
 struct Profile {
-    string nick;
+    string nick;      // nazwa gracza
     int bestScore = 0;
 };
 
-// ZARZĄDZANIE PROFILAMI 
+
+// MENEDŻER PROFILI
+
 class ProfileManager {
 public:
-    vector<Profile> profiles;
-    int selected = 0;
+    vector<Profile> profiles; // lista profili
+    int selected = 0;         // aktualnie wybrany profil
 
+    // Wczytywanie profili z pliku
     void load() {
-        const char* kProfileFile = "profile.dat";
-        const char* kLegacyProfileFile = "profiles.dat";
-        const unsigned char kXorKey = 0x5A;
-
         profiles.clear();
+        ifstream file("profiles.dat");
+        const int SHIFT = 3;
 
-        ifstream in(kProfileFile, ios::binary);
-        if (in) {
-            uint32_t count = 0;
-            in.read(reinterpret_cast<char*>(&count), sizeof(count));
-            if (!in.fail() && count < 1000) {
-                for (uint32_t i = 0; i < count; ++i) {
-                    uint32_t nameLen = 0;
-                    int32_t score = 0;
-                    in.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
-                    in.read(reinterpret_cast<char*>(&score), sizeof(score));
-                    if (in.fail() || nameLen > 256) {
-                        break;
-                    }
-                    string enc(nameLen, '\0');
-                    in.read(&enc[0], nameLen);
-                    if (in.fail()) {
-                        break;
-                    }
-                    string nick = xorTransform(enc, kXorKey);
-                    profiles.push_back({ nick, score });
-                }
-                if (!profiles.empty()) {
-                    return;
-                }
-            }
-        }
+        if (!file) return;
 
-        ifstream legacy(kLegacyProfileFile);
-        if (legacy) {
-            string nick;
-            int score;
-            const int SHIFT = 3;
+        string encNick;
+        int score;
 
-            while (legacy >> nick >> score) {
-                nick = caesarDecrypt(nick, SHIFT);
-                profiles.push_back({ nick, score });
-            }
-            if (!profiles.empty()) {
-                save();
-            }
+        while (file >> encNick >> score) {
+            profiles.push_back({
+                caesarDecrypt(encNick, SHIFT),
+                score
+                });
         }
     }
 
-
+    // Zapis profili do pliku
     void save() {
-        const char* kProfileFile = "profile.dat";
-        const unsigned char kXorKey = 0x5A;
-        ofstream out(kProfileFile, ios::binary | ios::trunc);
+        ofstream out("profiles.dat", ios::trunc);
+        const int SHIFT = 3;
 
-        uint32_t count = (uint32_t)profiles.size();
-        out.write(reinterpret_cast<const char*>(&count), sizeof(count));
         for (auto& p : profiles) {
-            string enc = xorTransform(p.nick, kXorKey);
-            uint32_t nameLen = (uint32_t)enc.size();
-            int32_t score = (int32_t)p.bestScore;
-            out.write(reinterpret_cast<const char*>(&nameLen), sizeof(nameLen));
-            out.write(reinterpret_cast<const char*>(&score), sizeof(score));
-            if (nameLen > 0) {
-                out.write(enc.data(), nameLen);
-            }
+            out << caesarEncrypt(p.nick, SHIFT)
+                << " "
+                << p.bestScore
+                << "\n";
         }
     }
 
-
+    // Dodanie nowego profilu
     void addProfile(const string& nick) {
         profiles.push_back({ nick, 0 });
         selected = (int)profiles.size() - 1;
         save();
     }
 
+    // Zwraca aktualnie wybrany profil
     Profile& current() {
         return profiles[selected];
     }
 };
-
 int main() {
-    const int W = 1280, H = 720;
+    const int W = 1280;
+    const int H = 720;
+
+    // OKNO + AUDIO
     InitWindow(W, H, "Flanki Shooter: Prepare to Battle");
     ToggleFullscreen();
     SetTargetFPS(60);
@@ -303,102 +341,153 @@ int main() {
 
     GameState state = MENU;
 
+    // ZMIENNE GRACZA
     float playerX = W / 2.0f;
     float playerY = H - 60.0f;
     float speed = 400.0f;
 
+    // PROFILE
     ProfileManager pm;
     pm.load();
 
     bool newProfileMode = false;
-    string newNick = "";
+    string newNick;
 
-    // ZMIENNE GAMEPLAY (OSOBA 1)
-    int playerHP = 100; int score = 0; int level = 0; bool bossActive = false;
-    int weaponLevel = 1; bool hasShield = false; bool fireAmmo = false; bool rapidFire = false; float shootTimer = 0.0f;
+    // ZMIENNE ROZGRYWKI
+    int playerHP = 100;
+    int score = 0;
+    int level = 0;
+    bool bossActive = false;
+
+    int weaponLevel = 1;
+    bool hasShield = false;
+    bool fireAmmo = false;
+    bool rapidFire = false;
+
+    float shootTimer = 0.0f;
     float rapidFireTimer = 0.0f;
+
     float drunkLevel = 0.0f;
     const float maxDrunk = 100.0f;
-    float formationOffset = 0.0f; float formationDir = 1.0f;
-    float transitionTimer = 0.0f;
-    vector<Bullet> bullets; vector<Enemy> enemies; vector<PowerUp> powerups;
 
+    float formationOffset = 0.0f;
+    float formationDir = 1.0f;
+    float transitionTimer = 0.0f;
+
+    vector<Bullet> bullets;
+    vector<Enemy> enemies;
+    vector<PowerUp> powerups;
+
+    // ===============================
+    // ŁADOWANIE ASSETÓW – GRAFIKA
+    // ============================
+
+    // Gracz
     Image playerImg = LoadImage(ResolveAssetPath("student3.png").c_str());
     Texture2D texPlayer = {};
-    if (playerImg.data != nullptr) {
+    if (playerImg.data) {
         MakeNearWhiteTransparent(&playerImg, 230);
         texPlayer = LoadTextureFromImage(playerImg);
         UnloadImage(playerImg);
     }
+
+    // Boss i inne obiekty
     Texture2D texBoss = LoadTexture(ResolveAssetPath("boss.png").c_str());
     Texture2D texCoffee = LoadTexture(ResolveAssetPath("kawa.png").c_str());
+
+    // Pocisk wroga
     Image enemyBulletImg = LoadImage(ResolveAssetPath("enemy.png").c_str());
     Texture2D texEnemyBullet = {};
-    if (enemyBulletImg.data != nullptr) {
+    if (enemyBulletImg.data) {
         MakeNearWhiteTransparent(&enemyBulletImg, 230);
         texEnemyBullet = LoadTextureFromImage(enemyBulletImg);
         UnloadImage(enemyBulletImg);
     }
+
+    // ===============================
+    // DŹWIĘKI
+    // ===============================
     Sound sfxLevelUp = LoadSound(ResolveAssetPath("levelup.mp3").c_str());
     Sound sfxShoot = LoadSound(ResolveAssetPath("strzal.mp3").c_str());
     Sound sfxPower = LoadSound(ResolveAssetPath("power.mp3").c_str());
+
+    // ===============================
+    // POWER-UPY – TEKSTURY
+    // ===============================
     Image powerHpImg = LoadImage(ResolveAssetPath("hp.png").c_str());
     Texture2D texPowerHp = {};
-    if (powerHpImg.data != nullptr) {
+    if (powerHpImg.data) {
         MakeNearWhiteTransparent(&powerHpImg, 230);
         texPowerHp = LoadTextureFromImage(powerHpImg);
         UnloadImage(powerHpImg);
     }
+
     Texture2D texPowerWeapon = LoadTexture(ResolveAssetPath("weapon.png").c_str());
     Texture2D texPowerShield = LoadTexture(ResolveAssetPath("shield.png").c_str());
     Texture2D texPowerFire = LoadTexture(ResolveAssetPath("fire.png").c_str());
+
     Image powerRapidImg = LoadImage(ResolveAssetPath("rapid.png").c_str());
     Texture2D texPowerRapid = {};
-    if (powerRapidImg.data != nullptr) {
+    if (powerRapidImg.data) {
         MakeNearWhiteTransparent(&powerRapidImg, 230);
         texPowerRapid = LoadTextureFromImage(powerRapidImg);
         UnloadImage(powerRapidImg);
     }
+
+    // ===============================
+    // TEKSTURY PRZECIWNIKÓW
+    // ===============================
     vector<Texture2D> enemyTextures;
-    const vector<string> enemyFiles = { "tyskie2.png", "warka.png", "tyskie2.png", "zubr.png" };
+    const vector<string> enemyFiles = {
+        "tyskie2.png",
+        "warka.png",
+        "tyskie2.png",
+        "zubr.png"
+    };
+
     for (const auto& file : enemyFiles) {
-        string path = ResolveAssetPath(file.c_str());
-        Image img = LoadImage(path.c_str());
-        if (img.data != nullptr) {
+        Image img = LoadImage(ResolveAssetPath(file.c_str()).c_str());
+        if (img.data) {
             MakeNearWhiteTransparent(&img, 230);
             Texture2D tex = LoadTextureFromImage(img);
             UnloadImage(img);
-            if (tex.id != 0) {
+            if (tex.id != 0)
                 enemyTextures.push_back(tex);
-            }
         }
     }
+
+    // Fallback – jedna tekstura, jeśli inne się nie załadują
     if (enemyTextures.empty()) {
-        string fallbackPath = ResolveAssetPath("enemy.png");
-        Image img = LoadImage(fallbackPath.c_str());
-        if (img.data != nullptr) {
+        Image img = LoadImage(ResolveAssetPath("enemy.png").c_str());
+        if (img.data) {
             MakeNearWhiteTransparent(&img, 230);
             Texture2D tex = LoadTextureFromImage(img);
             UnloadImage(img);
-            if (tex.id != 0) {
+            if (tex.id != 0)
                 enemyTextures.push_back(tex);
-            }
         }
     }
+
     gEnemyTextureCount = (int)enemyTextures.size();
-
+    // ===============================
+    // GŁÓWNA PĘTLA GRY
+    // ===============================
     while (!WindowShouldClose()) {
-        float dt = GetFrameTime();
+        float dt = GetFrameTime(); // delta time
 
-        // MENU (KOD OSOBY 3)
+        // ===============================
+        // MENU
+        // ===============================
         if (state == MENU) {
 
-            // NOWY PROFIL
+            // --- tryb tworzenia nowego profilu ---
             if (newProfileMode) {
 
-                for (int key = GetCharPressed(); key > 0; key = GetCharPressed())
+                // wpisywanie znaków
+                for (int key = GetCharPressed(); key > 0; key = GetCharPressed()) {
                     if (key >= 32 && key <= 125 && newNick.length() < 12)
                         newNick += (char)key;
+                }
 
                 if (IsKeyPressed(KEY_BACKSPACE) && !newNick.empty())
                     newNick.pop_back();
@@ -408,11 +497,12 @@ int main() {
                     newNick.clear();
                     newProfileMode = false;
                 }
-
             }
-            // WYBÓR PROFILU 
+            // --- wybór istniejącego profilu ---
             else if (!pm.profiles.empty()) {
+
                 int count = (int)pm.profiles.size();
+
                 if (IsKeyPressed(KEY_UP))
                     pm.selected = (pm.selected - 1 + count) % count;
 
@@ -420,25 +510,38 @@ int main() {
                     pm.selected = (pm.selected + 1) % count;
 
                 if (IsKeyPressed(KEY_ENTER)) {
-                    // RESET STANU GRY (OSOBA 1)
-                    playerX = W / 2.0f; playerY = H - 60.0f; playerHP = 100; score = 0; level = 0; bossActive = false;
-                    weaponLevel = 1; hasShield = false; fireAmmo = false; rapidFire = false;
-                    rapidFireTimer = 0.0f; drunkLevel = 0.0f;
-                    bullets.clear(); enemies.clear(); powerups.clear();
+                    // reset stanu gry
+                    playerX = W / 2.0f;
+                    playerY = H - 60.0f;
+                    playerHP = 100;
+                    score = 0;
+                    level = 0;
+                    bossActive = false;
 
-                    // ZMIANA: Zamiast do GAME, idziemy do ekranu przygotowania
+                    weaponLevel = 1;
+                    hasShield = false;
+                    fireAmmo = false;
+                    rapidFire = false;
+                    rapidFireTimer = 0.0f;
+                    drunkLevel = 0.0f;
+
+                    bullets.clear();
+                    enemies.clear();
+                    powerups.clear();
+
+                    // przejście do ekranu startowego poziomu
                     state = LEVEL_TRANSITION;
                     transitionTimer = 3.0f;
                 }
             }
 
+            // aktywacja trybu nowego profilu
             if (IsKeyPressed(KEY_N)) {
                 newProfileMode = true;
                 newNick.clear();
             }
 
-            //  RYSOWANIE MENU
-            //  RYSOWANIE MENU
+            // --- rysowanie menu ---
             BeginDrawing();
             ClearBackground(BLACK);
 
@@ -452,81 +555,106 @@ int main() {
                     TextFormat("%s  |  Best: %d",
                         pm.profiles[i].nick.c_str(),
                         pm.profiles[i].bestScore),
-                    W / 2 - 200, 240 + i * 30, 22, c
+                    W / 2 - 200,
+                    240 + i * 30,
+                    22,
+                    c
                 );
             }
 
-            // ===== BLOK MENU (jedna baza Y) =====
             int menuY = 240 + pm.profiles.size() * 30 + 30;
 
             DrawText("ENTER - wybierz", W / 2 - 200, menuY, 20, DARKGRAY);
             DrawText("N - nowy profil", W / 2 - 200, menuY + 30, 20, DARKGRAY);
 
-            // POLE NOWEGO NICKU POD "N - nowy profil"
+            // pole edycji nicku
             if (newProfileMode) {
                 DrawText("Nowy nick:", W / 2 - 200, menuY + 70, 22, GRAY);
                 DrawRectangle(W / 2 - 200, menuY + 100, 300, 40, DARKGRAY);
                 DrawText(newNick.c_str(), W / 2 - 190, menuY + 110, 22, RAYWHITE);
             }
 
-            // ESC na samym dole
             DrawText("ESC - wyjscie", W / 2 - 200, menuY + 160, 20, DARKGRAY);
 
             EndDrawing();
-
             continue;
         }
 
-        // --- WIN SCREEN ---
-        if (state == WIN_SCREEN) {
-            if (IsKeyPressed(KEY_ENTER)) state = MENU;
-            BeginDrawing(); ClearBackground(RAYWHITE);
-            DrawText("GRATULACJE!", W / 2 - 200, H / 2 - 50, 60, GOLD);
-            DrawText("Pokonales Bossa!", W / 2 - 250, H / 2 + 20, 30, DARKGRAY);
-            DrawText(TextFormat("Wynik: %d", score), W / 2 - 150, H / 2 + 60, 30, BLACK);
-            EndDrawing();
-            continue;
-        }
-
-        // --- LEVEL TRANSITION (Ekrany przejścia / Startu) ---
+        // ===============================
+        // EKRAN PRZEJŚCIA POZIOMU
+        // ===============================
         if (state == LEVEL_TRANSITION) {
+
             transitionTimer -= dt;
-            if (transitionTimer <= 0) {
-                level++; // Zwiekszamy level (z 0 na 1 przy starcie)
+
+            if (transitionTimer <= 0.0f) {
+
+                level++; // nowy poziom
+
                 int bossLevel = 6;
                 if (level >= bossLevel) {
+                    // spawn bossa
                     bossActive = true;
-                    enemies.push_back({ (float)W / 2 - 160, -240, 320, 240, 5000, 5000, true, 0, 0, true, MAROON, -1 });
+                    enemies.push_back({
+                        (float)W / 2 - 160,
+                        -240,
+                        320,
+                        240,
+                        5000,
+                        5000,
+                        true,
+                        0, 0,
+                        true,
+                        MAROON,
+                        -1
+                        });
                 }
                 else {
-                    int formationType = (level - 1) % 4;
-                    SpawnLevel(enemies, level, formationType);
+                    // spawn fali przeciwników
+                    SpawnLevel(enemies, level, (level - 1) % 4);
                     formationOffset = 0.0f;
                 }
-                if (IsSoundReady(sfxLevelUp)) {
+
+                if (IsSoundReady(sfxLevelUp))
                     PlaySound(sfxLevelUp);
-                }
+
                 state = GAME;
             }
 
+            // --- rysowanie ekranu przejścia ---
             BeginDrawing();
             ClearBackground(BLACK);
 
-            // Logika wyswietlania tekstu zalezna od levelu
             if (level == 0) {
                 DrawText("PRZYGOTUJ SIE!", W / 2 - 150, H / 2 - 50, 40, ORANGE);
                 DrawText("NADCHODZI FALA 1...", W / 2 - 200, H / 2 + 20, 30, WHITE);
             }
             else {
-                DrawText(TextFormat("LEVEL %d UKONCZONY!", level), W / 2 - 200, H / 2 - 50, 40, GREEN);
-                DrawText(TextFormat("Przygotuj sie na Level %d...", level + 1), W / 2 - 220, H / 2 + 20, 30, WHITE);
+                DrawText(
+                    TextFormat("LEVEL %d UKONCZONY!", level),
+                    W / 2 - 200,
+                    H / 2 - 50,
+                    40,
+                    GREEN
+                );
+                DrawText(
+                    TextFormat("Przygotuj sie na Level %d...", level + 1),
+                    W / 2 - 220,
+                    H / 2 + 20,
+                    30,
+                    WHITE
+                );
             }
+
             EndDrawing();
             continue;
         }
-
-        // --- GAMEPLAY (OSOBA 1) ---
+        // ===============================
+        // GAMEPLAY – LOGIKA
+        // ===============================
         if (!pm.profiles.empty() && state == GAME) {
+
+            // --- timery bonusów ---
             if (rapidFireTimer > 0.0f) {
                 rapidFireTimer -= dt;
                 if (rapidFireTimer <= 0.0f) {
@@ -535,201 +663,412 @@ int main() {
                 }
             }
 
-            if (drunkLevel > 0.0f) {
+            // --- efekt "upicia" ---
+            if (drunkLevel > 0.0f)
                 drunkLevel = max(0.0f, drunkLevel - 6.0f * dt);
-            }
+
             float drunkFactor = drunkLevel / maxDrunk;
             float moveSpeed = speed * (1.0f - 0.4f * drunkFactor);
             float wobble = sin(GetTime() * 2.5f) * 60.0f * drunkFactor;
 
-            // STEROWANIE
-            if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) playerX -= moveSpeed * dt; if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) playerX += moveSpeed * dt;
-            if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) playerY -= moveSpeed * dt; if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) playerY += moveSpeed * dt;
-            playerX += wobble * dt;
-            if (playerX < 32) playerX = 32; if (playerX > W - 32) playerX = W - 32;
-            if (playerY > H - 32) playerY = H - 32; if (playerY < 400) playerY = 400; // Limit gorny
-            if (IsKeyPressed(KEY_ESCAPE)) state = MENU;
+            // --- sterowanie graczem ---
+            if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))
+                playerX -= moveSpeed * dt;
+            if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT))
+                playerX += moveSpeed * dt;
+            if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
+                playerY -= moveSpeed * dt;
+            if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))
+                playerY += moveSpeed * dt;
 
+            playerX += wobble * dt;
+
+            // ograniczenia ekranu
+            playerX = Clamp(playerX, 32, W - 32);
+            playerY = Clamp(playerY, 400, H - 32);
+
+            if (IsKeyPressed(KEY_ESCAPE))
+                state = MENU;
+
+            // ===============================
             // STRZELANIE
-            if (shootTimer > 0) shootTimer -= dt;
-            bool shootDown = IsKeyDown(KEY_SPACE) || IsMouseButtonDown(MOUSE_LEFT_BUTTON);
-            bool shootPressed = IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+            // ===============================
+            if (shootTimer > 0)
+                shootTimer -= dt;
+
+            bool shootDown =
+                IsKeyDown(KEY_SPACE) || IsMouseButtonDown(MOUSE_LEFT_BUTTON);
+            bool shootPressed =
+                IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+
             bool shootInput = rapidFire ? shootDown : shootPressed;
             float fireRate = rapidFire ? 0.15f : 0.0f;
-            if (shootInput && shootTimer <= 0) {
-                shootTimer = fireRate; int dmg = fireAmmo ? 20 : 10; Color bulletColor = fireAmmo ? ORANGE : GREEN; float bSpeed = -600.0f;
-                if (IsSoundReady(sfxShoot)) {
+
+            if (shootInput && shootTimer <= 0.0f) {
+                shootTimer = fireRate;
+
+                int dmg = fireAmmo ? 20 : 10;
+                Color bulletColor = fireAmmo ? ORANGE : GREEN;
+                float bulletSpeed = -600.0f;
+
+                if (IsSoundReady(sfxShoot))
                     PlaySound(sfxShoot);
+
+                // poziomy broni
+                if (weaponLevel == 1) {
+                    bullets.push_back({ playerX, playerY - 32, bulletSpeed, 0, false, bulletColor, dmg });
                 }
-                if (weaponLevel == 1) bullets.push_back({ playerX, playerY - 32, bSpeed, 0, false, bulletColor, dmg });
-                else if (weaponLevel == 2) { bullets.push_back({ playerX - 10, playerY - 32, bSpeed, 0, false, bulletColor, dmg }); bullets.push_back({ playerX + 10, playerY - 32, bSpeed, 0, false, bulletColor, dmg }); }
-                else if (weaponLevel == 3) { bullets.push_back({ playerX, playerY - 36, bSpeed, 0, false, bulletColor, dmg }); bullets.push_back({ playerX - 15, playerY - 26, bSpeed, -100, false, bulletColor, dmg }); bullets.push_back({ playerX + 15, playerY - 26, bSpeed, 100, false, bulletColor, dmg }); }
-                else if (weaponLevel == 4) { bullets.push_back({ playerX - 10, playerY - 32, bSpeed, 0, false, bulletColor, dmg }); bullets.push_back({ playerX + 10, playerY - 32, bSpeed, 0, false, bulletColor, dmg }); bullets.push_back({ playerX - 25, playerY - 22, bSpeed, -150, false, bulletColor, dmg }); bullets.push_back({ playerX + 25, playerY - 22, bSpeed, 150, false, bulletColor, dmg }); }
-                else if (weaponLevel >= 5) { bullets.push_back({ playerX, playerY - 36, bSpeed, 0, false, bulletColor, dmg }); bullets.push_back({ playerX - 15, playerY - 30, bSpeed, -50, false, bulletColor, dmg }); bullets.push_back({ playerX + 15, playerY - 30, bSpeed, 50, false, bulletColor, dmg }); bullets.push_back({ playerX - 30, playerY - 20, bSpeed, -200, false, bulletColor, dmg }); bullets.push_back({ playerX + 30, playerY - 20, bSpeed, 200, false, bulletColor, dmg }); }
+                else if (weaponLevel == 2) {
+                    bullets.push_back({ playerX - 10, playerY - 32, bulletSpeed, 0, false, bulletColor, dmg });
+                    bullets.push_back({ playerX + 10, playerY - 32, bulletSpeed, 0, false, bulletColor, dmg });
+                }
+                else if (weaponLevel == 3) {
+                    bullets.push_back({ playerX, playerY - 36, bulletSpeed, 0, false, bulletColor, dmg });
+                    bullets.push_back({ playerX - 15, playerY - 26, bulletSpeed, -100, false, bulletColor, dmg });
+                    bullets.push_back({ playerX + 15, playerY - 26, bulletSpeed, 100, false, bulletColor, dmg });
+                }
+                else if (weaponLevel == 4) {
+                    bullets.push_back({ playerX - 10, playerY - 32, bulletSpeed, 0, false, bulletColor, dmg });
+                    bullets.push_back({ playerX + 10, playerY - 32, bulletSpeed, 0, false, bulletColor, dmg });
+                    bullets.push_back({ playerX - 25, playerY - 22, bulletSpeed, -150, false, bulletColor, dmg });
+                    bullets.push_back({ playerX + 25, playerY - 22, bulletSpeed, 150, false, bulletColor, dmg });
+                }
+                else {
+                    bullets.push_back({ playerX, playerY - 36, bulletSpeed, 0, false, bulletColor, dmg });
+                    bullets.push_back({ playerX - 15, playerY - 30, bulletSpeed, -50, false, bulletColor, dmg });
+                    bullets.push_back({ playerX + 15, playerY - 30, bulletSpeed, 50, false, bulletColor, dmg });
+                    bullets.push_back({ playerX - 30, playerY - 20, bulletSpeed, -200, false, bulletColor, dmg });
+                    bullets.push_back({ playerX + 30, playerY - 20, bulletSpeed, 200, false, bulletColor, dmg });
+                }
             }
 
-            // LOGIKA PRZEJŚCIA PO UKOŃCZENIU FALI
+            // ===============================
+            // PRZEJŚCIE PO FALI
+            // ===============================
             if (!bossActive && enemies.empty()) {
                 state = LEVEL_TRANSITION;
                 transitionTimer = 3.0f;
             }
 
-            // RUCH I LOGIKA WROGÓW
-            if (!bossActive && !enemies.empty()) { formationOffset += formationDir * 150.0f * dt; if (formationOffset > 200) formationDir = -1.0f; if (formationOffset < -200) formationDir = 1.0f; }
-            for (auto& e : enemies) {
-                if (e.isBoss) {
-                    if (e.y < 50) e.y += 100 * dt;
-                    else e.x += sin(GetTime()) * 300 * dt;
-                    if (GetRandomValue(0, 100) < 8) { bullets.push_back({ e.x + e.width / 2, e.y + e.height, 400, 0, true, RED, 10 }); bullets.push_back({ e.x, e.y + e.height, 350, -200, true, RED, 10 }); bullets.push_back({ e.x + e.width, e.y + e.height, 350, 200, true, RED, 10 }); }
-                }
-                else {
-                    if (!e.inPosition) { e.y += 500 * dt; e.x = e.formationX + formationOffset; if (e.y >= e.formationY) { e.y = e.formationY; e.inPosition = true; } }
-                    else { e.x = e.formationX + formationOffset; }
-                    if (GetRandomValue(0, 3000) < 5) bullets.push_back({ e.x + e.width / 2, e.y + e.height, 300, 0, true, e.baseColor, 10 });
-                }
+            // ===============================
+            // RUCH WROGÓW
+            // ===============================
+            if (!bossActive && !enemies.empty()) {
+                formationOffset += formationDir * 150.0f * dt;
+                if (formationOffset > 200) formationDir = -1.0f;
+                if (formationOffset < -200) formationDir = 1.0f;
             }
 
-            // POCISKI, KOLIZJE
-            for (int i = 0; i < bullets.size(); i++) { bullets[i].y += bullets[i].speedY * dt; bullets[i].x += bullets[i].speedX * dt; if (bullets[i].y < -50 || bullets[i].y > H + 50 || bullets[i].x < -50 || bullets[i].x > W + 50) { bullets.erase(bullets.begin() + i); i--; } }
-            Rectangle playerRect = { playerX - 32, playerY - 32, 64, 64 };
-            for (int i = 0; i < bullets.size(); i++) {
-                if (bullets[i].isEnemy) {
-                    if (CheckCollisionCircleRec({ bullets[i].x, bullets[i].y }, 5, playerRect)) {
-                        if (hasShield) { hasShield = false; bullets.erase(bullets.begin() + i); i--; }
+            for (auto& e : enemies) {
 
-                        else {
-                            playerHP -= 10; bullets.erase(bullets.begin() + i); i--;
-                            drunkLevel = min(maxDrunk, drunkLevel + 10.0f);
-                            if (playerHP <= 0)
-                            {
-                                if (score > pm.current().bestScore) {
-                                    pm.current().bestScore = score;
-                                    pm.save();
-                                } state = MENU;
-                            }
+                // --- boss ---
+                if (e.isBoss) {
+                    if (e.y < 50)
+                        e.y += 100 * dt;
+                    else
+                        e.x += sin(GetTime()) * 300 * dt;
+
+                    if (GetRandomValue(0, 100) < 8) {
+                        bullets.push_back({ e.x + e.width / 2, e.y + e.height, 400, 0, true, RED, 10 });
+                        bullets.push_back({ e.x, e.y + e.height, 350, -200, true, RED, 10 });
+                        bullets.push_back({ e.x + e.width, e.y + e.height, 350, 200, true, RED, 10 });
+                    }
+                }
+                // --- zwykły wróg ---
+                else {
+                    if (!e.inPosition) {
+                        e.y += 500 * dt;
+                        e.x = e.formationX + formationOffset;
+                        if (e.y >= e.formationY) {
+                            e.y = e.formationY;
+                            e.inPosition = true;
                         }
+                    }
+                    else {
+                        e.x = e.formationX + formationOffset;
+                    }
+
+                    if (GetRandomValue(0, 3000) < 5) {
+                        bullets.push_back({ e.x + e.width / 2, e.y + e.height, 300, 0, true, e.baseColor, 10 });
                     }
                 }
             }
+
+            // ===============================
+            // POCISKI
+            // ===============================
+            for (int i = 0; i < bullets.size(); i++) {
+                bullets[i].x += bullets[i].speedX * dt;
+                bullets[i].y += bullets[i].speedY * dt;
+
+                if (bullets[i].y < -50 || bullets[i].y > H + 50 ||
+                    bullets[i].x < -50 || bullets[i].x > W + 50) {
+                    bullets.erase(bullets.begin() + i);
+                    i--;
+                }
+            }
+
+            Rectangle playerRect = { playerX - 32, playerY - 32, 64, 64 };
+
+            // --- trafienia gracza ---
+            for (int i = 0; i < bullets.size(); i++) {
+                if (bullets[i].isEnemy &&
+                    CheckCollisionCircleRec({ bullets[i].x, bullets[i].y }, 5, playerRect)) {
+
+                    if (hasShield) {
+                        hasShield = false;
+                    }
+                    else {
+                        playerHP -= 10;
+                        drunkLevel = min(maxDrunk, drunkLevel + 10.0f);
+
+                        if (playerHP <= 0) {
+                            if (score > pm.current().bestScore) {
+                                pm.current().bestScore = score;
+                                pm.save();
+                            }
+                            state = MENU;
+                        }
+                    }
+                    bullets.erase(bullets.begin() + i);
+                    i--;
+                }
+            }
+
+            // --- trafienia przeciwników ---
             for (int i = 0; i < bullets.size(); i++) {
                 if (!bullets[i].isEnemy) {
-                    bool hit = false; for (int j = 0; j < enemies.size(); j++) {
-                        Rectangle enemyRect = { enemies[j].x, enemies[j].y, enemies[j].width, enemies[j].height }; if (CheckCollisionCircleRec({ bullets[i].x, bullets[i].y }, 3, enemyRect)) {
-                            enemies[j].hp -= bullets[i].damage; hit = true; if (enemies[j].hp <= 0) {
-                                score += (enemies[j].isBoss ? 5000 : 50); if (!enemies[j].isBoss && GetRandomValue(0, 100) < 20) { int pType = GetRandomValue(0, 5); powerups.push_back({ enemies[j].x, enemies[j].y, pType, true }); } if (enemies[j].isBoss) {
-                                    if (IsSoundReady(sfxPower)) {
+                    for (int j = 0; j < enemies.size(); j++) {
+                        Rectangle enemyRect = {
+                            enemies[j].x, enemies[j].y,
+                            enemies[j].width, enemies[j].height
+                        };
+
+                        if (CheckCollisionCircleRec({ bullets[i].x, bullets[i].y }, 3, enemyRect)) {
+
+                            enemies[j].hp -= bullets[i].damage;
+
+                            if (enemies[j].hp <= 0) {
+                                score += enemies[j].isBoss ? 5000 : 50;
+
+                                if (!enemies[j].isBoss &&
+                                    GetRandomValue(0, 100) < 20) {
+                                    powerups.push_back({
+                                        enemies[j].x,
+                                        enemies[j].y,
+                                        GetRandomValue(0, 5),
+                                        true
+                                        });
+                                }
+
+                                if (enemies[j].isBoss) {
+                                    if (IsSoundReady(sfxPower))
                                         PlaySound(sfxPower);
-                                    }
-                                    enemies.erase(enemies.begin() + j); if (score > pm.current().bestScore) {
+
+                                    enemies.erase(enemies.begin() + j);
+
+                                    if (score > pm.current().bestScore) {
                                         pm.current().bestScore = score;
                                         pm.save();
-                                    } state = WIN_SCREEN; break;
-                                } enemies.erase(enemies.begin() + j);
-                            } break;
+                                    }
+                                    state = WIN_SCREEN;
+                                    break;
+                                }
+
+                                enemies.erase(enemies.begin() + j);
+                            }
+
+                            bullets.erase(bullets.begin() + i);
+                            i--;
+                            break;
                         }
-                    } if (hit) { bullets.erase(bullets.begin() + i); i--; }
+                    }
                 }
             }
+
+            // ===============================
+            // POWER-UPY
+            // ===============================
             for (int i = 0; i < powerups.size(); i++) {
                 powerups[i].y += 150 * dt;
-                int t = powerups[i].type;
-                float size = (t == 0 || t == 2 || t == 5) ? 36.0f : 28.0f;
-                if (CheckCollisionRecs(playerRect, { powerups[i].x, powerups[i].y, size, size })) {
-                    if (IsSoundReady(sfxPower)) {
+
+                float size =
+                    (powerups[i].type == 0 ||
+                        powerups[i].type == 2 ||
+                        powerups[i].type == 5) ? 36.0f : 28.0f;
+
+                if (CheckCollisionRecs(
+                    playerRect,
+                    { powerups[i].x, powerups[i].y, size, size })) {
+
+                    if (IsSoundReady(sfxPower))
                         PlaySound(sfxPower);
-                    }
-                    if (t == 0) playerHP = (playerHP + 30 > 100) ? 100 : playerHP + 30;
-                    if (t == 1) { if (weaponLevel < 5) weaponLevel++; }
+
+                    int t = powerups[i].type;
+
+                    if (t == 0) playerHP = min(100, playerHP + 30);
+                    if (t == 1 && weaponLevel < 5) weaponLevel++;
                     if (t == 2) hasShield = true;
                     if (t == 3) fireAmmo = true;
                     if (t == 4) { rapidFire = true; rapidFireTimer = max(rapidFireTimer, 8.0f); }
-                    if (t == 5) { playerHP = (playerHP + 20 > 100) ? 100 : playerHP + 20; drunkLevel = max(0.0f, drunkLevel - 40.0f); rapidFire = true; rapidFireTimer = max(rapidFireTimer, 6.0f); }
+                    if (t == 5) {
+                        playerHP = min(100, playerHP + 20);
+                        drunkLevel = max(0.0f, drunkLevel - 40.0f);
+                        rapidFire = true;
+                        rapidFireTimer = max(rapidFireTimer, 6.0f);
+                    }
+
                     powerups.erase(powerups.begin() + i);
                     i--;
-                } else if (powerups[i].y > H) {
+                }
+                else if (powerups[i].y > H) {
                     powerups.erase(powerups.begin() + i);
                     i--;
                 }
             }
         }
-
-        // RYSOWANIE GRY (OSOBA 1)
+        // ===============================
+        // RYSOWANIE
+        // ===============================
         BeginDrawing();
         ClearBackground(BLACK);
+
+        // --- RYSOWANIE ROZGRYWKI ---
         if (!pm.profiles.empty() && state == GAME) {
+
+            // --- gracz ---
             if (texPlayer.id != 0) {
-                Rectangle srcPlayer = { 0, 0, (float)texPlayer.width, (float)texPlayer.height };
-                Rectangle dstPlayer = { playerX - 32, playerY - 32, 64, 64 };
-                DrawTexturePro(texPlayer, srcPlayer, dstPlayer, { 0, 0 }, 0.0f, WHITE);
-            } else {
+                Rectangle src = { 0, 0, (float)texPlayer.width, (float)texPlayer.height };
+                Rectangle dst = { playerX - 32, playerY - 32, 64, 64 };
+                DrawTexturePro(texPlayer, src, dst, { 0, 0 }, 0.0f, WHITE);
+            }
+            else {
                 DrawCircle((int)playerX, (int)playerY, 18, RAYWHITE);
             }
-            if (hasShield) DrawRing({ playerX, playerY }, 32, 36, 0, 360, 0, SKYBLUE);
+
+            // tarcza
+            if (hasShield)
+                DrawRing({ playerX, playerY }, 32, 36, 0, 360, 0, SKYBLUE);
+
+            // --- przeciwnicy ---
             for (auto& e : enemies) {
-                Color c = e.isBoss ? e.baseColor : (e.inPosition ? e.baseColor : RED);
+
                 if (e.isBoss && texBoss.id != 0) {
-                    Rectangle srcBoss = { 0, 0, (float)texBoss.width, (float)texBoss.height };
-                    Rectangle dstBoss = { e.x, e.y, e.width, e.height };
-                    DrawTexturePro(texBoss, srcBoss, dstBoss, { 0, 0 }, 0.0f, WHITE);
-                } else if (!e.isBoss && e.textureIndex >= 0 && e.textureIndex < (int)enemyTextures.size() && enemyTextures[e.textureIndex].id != 0) {
-                    Texture2D& tex = enemyTextures[e.textureIndex];
-                    Rectangle srcEnemy = { 0, 0, (float)tex.width, (float)tex.height };
-                    Rectangle dstEnemy = { e.x, e.y, e.width, e.height };
-                    DrawTexturePro(tex, srcEnemy, dstEnemy, { 0, 0 }, 0.0f, WHITE);
-                } else {
-                    DrawRectangle((int)e.x, (int)e.y, (int)e.width, (int)e.height, c);
+                    Rectangle src = { 0, 0, (float)texBoss.width, (float)texBoss.height };
+                    Rectangle dst = { e.x, e.y, e.width, e.height };
+                    DrawTexturePro(texBoss, src, dst, { 0, 0 }, 0.0f, WHITE);
                 }
+                else if (!e.isBoss &&
+                    e.textureIndex >= 0 &&
+                    e.textureIndex < enemyTextures.size() &&
+                    enemyTextures[e.textureIndex].id != 0) {
+
+                    Texture2D& tex = enemyTextures[e.textureIndex];
+                    Rectangle src = { 0, 0, (float)tex.width, (float)tex.height };
+                    Rectangle dst = { e.x, e.y, e.width, e.height };
+                    DrawTexturePro(tex, src, dst, { 0, 0 }, 0.0f, WHITE);
+                }
+                else {
+                    DrawRectangle(e.x, e.y, e.width, e.height, e.baseColor);
+                }
+
+                // pasek HP bossa
                 if (e.isBoss) {
                     DrawRectangle(e.x, e.y - 15, e.width, 10, DARKGRAY);
-                    DrawRectangle(e.x, e.y - 15, e.width * ((float)e.hp / e.maxHp), 10, GREEN);
+                    DrawRectangle(
+                        e.x,
+                        e.y - 15,
+                        e.width * ((float)e.hp / e.maxHp),
+                        10,
+                        GREEN
+                    );
                 }
             }
+
+            // --- pociski ---
             for (auto& b : bullets) {
                 if (b.isEnemy && texEnemyBullet.id != 0) {
-                    Rectangle srcBullet = { 0, 0, (float)texEnemyBullet.width, (float)texEnemyBullet.height };
-                    Rectangle dstBullet = { b.x - 14, b.y - 14, 28, 28 };
-                    DrawTexturePro(texEnemyBullet, srcBullet, dstBullet, { 0, 0 }, 0.0f, WHITE);
-                } else if (!b.isEnemy && texPowerWeapon.id != 0) {
-                    Rectangle srcBullet = { 0, 0, (float)texPowerWeapon.width, (float)texPowerWeapon.height };
-                    Rectangle dstBullet = { b.x - 8, b.y - 8, 16, 16 };
-                    DrawTexturePro(texPowerWeapon, srcBullet, dstBullet, { 0, 0 }, 0.0f, WHITE);
-                } else {
-                    DrawCircle((int)b.x, (int)b.y, b.isEnemy ? 5 : (fireAmmo ? 5 : 3), b.color);
+                    Rectangle src = { 0, 0, (float)texEnemyBullet.width, (float)texEnemyBullet.height };
+                    Rectangle dst = { b.x - 14, b.y - 14, 28, 28 };
+                    DrawTexturePro(texEnemyBullet, src, dst, { 0, 0 }, 0.0f, WHITE);
+                }
+                else {
+                    DrawCircle(
+                        (int)b.x,
+                        (int)b.y,
+                        b.isEnemy ? 5 : (fireAmmo ? 5 : 3),
+                        b.color
+                    );
                 }
             }
+
+            // --- power-upy ---
             for (auto& p : powerups) {
-                Color pc = WHITE;
-                const char* txt = "?";
+
                 Texture2D* tex = nullptr;
-                if (p.type == 0) { pc = GREEN; txt = "+"; if (texPowerHp.id != 0) tex = &texPowerHp; }
-                if (p.type == 1) { pc = YELLOW; txt = "W"; if (texPowerWeapon.id != 0) tex = &texPowerWeapon; }
-                if (p.type == 2) { pc = BLUE; txt = "S"; if (texPowerShield.id != 0) tex = &texPowerShield; }
-                if (p.type == 3) { pc = ORANGE; txt = "F"; if (texPowerFire.id != 0) tex = &texPowerFire; }
-                if (p.type == 4) { pc = PURPLE; txt = "R"; if (texPowerRapid.id != 0) tex = &texPowerRapid; }
-                if (p.type == 5 && texCoffee.id != 0) { tex = &texCoffee; }
-                float size = (p.type == 0 || p.type == 2 || p.type == 5) ? 36.0f : 28.0f;
-                if (p.type == 4) size = 40.0f;
-                if (tex != nullptr && tex->id != 0) {
+                float size = 28.0f;
+
+                if (p.type == 0 && texPowerHp.id != 0) {
+                    tex = &texPowerHp; size = 36;
+                }
+                if (p.type == 1 && texPowerWeapon.id != 0) {
+                    tex = &texPowerWeapon;
+                }
+                if (p.type == 2 && texPowerShield.id != 0) {
+                    tex = &texPowerShield; size = 36;
+                }
+                if (p.type == 3 && texPowerFire.id != 0) {
+                    tex = &texPowerFire;
+                }
+                if (p.type == 4 && texPowerRapid.id != 0) {
+                    tex = &texPowerRapid; size = 40;
+                }
+                if (p.type == 5 && texCoffee.id != 0) {
+                    tex = &texCoffee; size = 36;
+                }
+
+                if (tex && tex->id != 0) {
                     Rectangle src = { 0, 0, (float)tex->width, (float)tex->height };
                     Rectangle dst = { p.x, p.y, size, size };
                     DrawTexturePro(*tex, src, dst, { 0, 0 }, 0.0f, WHITE);
-                } else {
-                    DrawRectangle((int)p.x, (int)p.y, (int)size, (int)size, pc);
-                    DrawText(txt, (int)p.x + 7, (int)p.y + 4, 12, BLACK);
+                }
+                else {
+                    DrawRectangle(p.x, p.y, size, size, WHITE);
                 }
             }
-            DrawText(TextFormat("Gracz: %s", pm.current().nick.c_str()), 10, 10, 20, WHITE); DrawText(TextFormat("HP: %d", playerHP), 10, 40, 20, GREEN); DrawText(TextFormat("Score: %d", score), 10, 70, 20, YELLOW);
+
+            // --- HUD ---
+            DrawText(TextFormat("Gracz: %s", pm.current().nick.c_str()), 10, 10, 20, WHITE);
+            DrawText(TextFormat("HP: %d", playerHP), 10, 40, 20, GREEN);
+            DrawText(TextFormat("Score: %d", score), 10, 70, 20, YELLOW);
+            DrawText(TextFormat("Best: %d", pm.current().bestScore), 10, 100, 20, GOLD);
+
+            DrawText("Active bonuses:", 10, 130, 15, GRAY);
+            if (fireAmmo)  DrawText("FIRE AMMO", 10, 150, 15, ORANGE);
+            if (rapidFire) DrawText("RAPID FIRE", 10, 170, 15, PURPLE);
+
             DrawText(
-                TextFormat("Best: %d", pm.current().bestScore),
-                10, 100, 20, GOLD);
-            DrawText("Active bonuses:", 10, 110, 15, GRAY); if (fireAmmo) DrawText("FIRE AMMO", 10, 130, 15, ORANGE); if (rapidFire) DrawText("RAPID FIRE", 10, 150, 15, PURPLE); DrawText(TextFormat("Weapon Lvl: %d/5", weaponLevel), 10, 170, 15, YELLOW);
-            DrawText(TextFormat("Upicie: %d%%", (int)drunkLevel), 10, 190, 15, LIGHTGRAY);
-            if (bossActive) DrawText("FINAL BOSS!", W / 2 - 100, 50, 30, RED); else DrawText(TextFormat("LEVEL: %d", level), W - 150, 10, 20, BLUE);
+                TextFormat("Weapon Lvl: %d/5", weaponLevel),
+                10, 190, 15, YELLOW
+            );
+
+            DrawText(
+                TextFormat("Upicie: %d%%", (int)drunkLevel),
+                10, 210, 15, LIGHTGRAY
+            );
+
+            if (bossActive)
+                DrawText("FINAL BOSS!", W / 2 - 100, 50, 30, RED);
+            else
+                DrawText(TextFormat("LEVEL: %d", level), W - 150, 10, 20, BLUE);
         }
 
         EndDrawing();
     }
 
+    // ===============================
+    // SPRZĄTANIE ZASOBÓW
+    // ===============================
     UnloadTexture(texPlayer);
     UnloadTexture(texBoss);
     UnloadTexture(texCoffee);
@@ -739,14 +1078,16 @@ int main() {
     UnloadTexture(texPowerShield);
     UnloadTexture(texPowerFire);
     UnloadTexture(texPowerRapid);
-    for (auto& tex : enemyTextures) {
+
+    for (auto& tex : enemyTextures)
         UnloadTexture(tex);
-    }
+
     UnloadSound(sfxLevelUp);
     UnloadSound(sfxShoot);
     UnloadSound(sfxPower);
-    CloseAudioDevice();
 
+    CloseAudioDevice();
     CloseWindow();
+
     return 0;
 }
